@@ -78,6 +78,7 @@ func runSQL(db *sql.DB, command string) {
 	}
 
 	// Fetch rows
+	fmt.Println("-----------------------------------")
 	for rows.Next() {
 		err = rows.Scan(scanArgs...)
 		if err != nil {
@@ -123,7 +124,7 @@ func main() {
 	var query string
 	flag.StringVar(&query, "q", "", "SQL Query")
 	flag.Parse()
-	fmt.Println("Query: " + query)
+	// fmt.Println("Query: " + query)
 
 	db := openDB()
 	instancesToDB(db, listInstances())
