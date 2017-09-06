@@ -40,13 +40,6 @@ func instancesToDB(db *sql.DB, instances *ec2.DescribeInstancesOutput) {
 				publicIP = ""
 			}
 			//sqlExec(db, "DROP TABLE IF EXISTS instances")
-			sqlExec(db, `CREATE TABLE IF NOT EXISTS instances( 
-						instance_id string, image_id  string,
-						private_ip string, public_ip string,
-						public_dnsname string, keyname string,
-						name string, iam_profile string
-						);
-					`)
 
 			stmt, err := db.Prepare(`INSERT INTO instances(
 										instance_id, image_id, private_ip,
@@ -111,6 +104,17 @@ func runSQL(db *sql.DB, command string) {
 func openDB() *sql.DB {
 	db, err := sql.Open("sqlite3", "./awsql.db")
 	checkErr(err)
+	sqlExec(db, `CREATE TABLE IF NOT EXISTS instances( 
+		instance_id string, image_id  string,
+		private_ip string, public_ip string,
+		public_dnsname string, keyname string,
+		name string, iam_profile string
+		);
+		
+		DELETE FROM instances;
+		VACUUM;
+	`)
+
 	return db
 }
 
