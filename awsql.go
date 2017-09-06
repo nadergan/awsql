@@ -48,9 +48,9 @@ func instancesToDB(db *sql.DB, instances *ec2.DescribeInstancesOutput) {
 					`)
 
 			stmt, err := db.Prepare(`INSERT INTO instances(
-															instance_id, image_id, private_ip,
-															public_ip, public_dnsname, keyname,
-															name, iam_profile
+										instance_id, image_id, private_ip,
+										public_ip, public_dnsname, keyname,
+										name, iam_profile
 															)
 									 values(?,?,?,?,?,?,?,?)`)
 			checkErr(err)
@@ -65,7 +65,7 @@ func instancesToDB(db *sql.DB, instances *ec2.DescribeInstancesOutput) {
 }
 
 func openDB() *sql.DB {
-	db, err := sql.Open("sqlite3", "./aws.db")
+	db, err := sql.Open("sqlite3", "./awsql.db")
 	checkErr(err)
 	return db
 }
