@@ -1,2 +1,4 @@
 *.db
 .vscode-upload.json
+.vscode/*
+.vscode
