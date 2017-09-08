@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -23,14 +24,36 @@ func listInstances() *ec2.DescribeInstancesOutput {
 	return resp
 }
 
+func openDB() *sql.DB {
+	db, err := sql.Open("sqlite3", "./awsql.db")
+	checkErr(err)
+	sqlExec(db, `
+	CREATE TABLE IF NOT EXISTS instances( 
+	instance_id string, image_id  string,
+	private_ip string, public_ip string,
+	public_dnsname string, keyname string,
+	name string, iam_profile string, vpc_id string,
+	architecture string, instance_type string,
+	sg string
+	);
+	
+	DELETE FROM instances;
+	VACUUM;
+	`)
+
+	return db
+}
+
 func instancesToDB(db *sql.DB, instances *ec2.DescribeInstancesOutput) {
 	for idx := range instances.Reservations {
 		for _, inst := range instances.Reservations[idx].Instances {
 
 			// Get iamProfile and beware of nil values.
-			var iamProfile ec2.IamInstanceProfile
+			var iamProfile string
 			if inst.IamInstanceProfile != nil {
-				iamProfile = *inst.IamInstanceProfile
+				iamProfile = *inst.IamInstanceProfile.Arn
+			} else {
+				iamProfile = ""
 			}
 			// Get instance Public IP address and beware of nils!
 			var publicIP string
@@ -44,12 +67,20 @@ func instancesToDB(db *sql.DB, instances *ec2.DescribeInstancesOutput) {
 			stmt, err := db.Prepare(`INSERT INTO instances(
 										instance_id, image_id, private_ip,
 										public_ip, public_dnsname, keyname,
-										name, iam_profile
-															)
-									 values(?,?,?,?,?,?,?,?)`)
+										name, iam_profile, vpc_id, architecture,
+										instance_type, sg
+									)
+									 values(?,?,?,?,?,?,?,?,?,?,?,?)`)
 			checkErr(err)
+			var secgrp string
+			for _, s := range inst.SecurityGroups {
+				secgrp = secgrp + "," + *s.GroupId
+			}
+			secgrp = strings.TrimPrefix(secgrp, ",")
 			_, err = stmt.Exec(*inst.InstanceId, *inst.ImageId, *inst.PrivateIpAddress, publicIP,
-				*inst.PublicDnsName, *inst.KeyName, *inst.Tags[0].Value, iamProfile.Arn)
+				*inst.PublicDnsName, *inst.KeyName, *inst.Tags[0].Value, iamProfile, *inst.VpcId,
+				*inst.Architecture, *inst.InstanceType, secgrp)
+
 			checkErr(err)
 			// fmt.Println(*inst.InstanceId, *inst.ImageId, *inst.PrivateIpAddress, publicIP,
 			// 	*inst.PublicDnsName, *inst.KeyName, *inst.Tags[0].Value, iamProfile.Arn)
@@ -102,26 +133,10 @@ func runSQL(db *sql.DB, command string) {
 	}
 }
 
-func openDB() *sql.DB {
-	db, err := sql.Open("sqlite3", "./awsql.db")
-	checkErr(err)
-	sqlExec(db, `CREATE TABLE IF NOT EXISTS instances( 
-		instance_id string, image_id  string,
-		private_ip string, public_ip string,
-		public_dnsname string, keyname string,
-		name string, iam_profile string
-		);
-		
-		DELETE FROM instances;
-		VACUUM;
-	`)
-
-	return db
-}
-
 func main() {
 
 	var query string
+
 	flag.StringVar(&query, "q", "", "SQL Query")
 	flag.Parse()
 	// fmt.Println("Query: " + query)
